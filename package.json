@@ -1,0 +1,33 @@
+{
+  "name": "restaurant_mng",
+  "version": "1.0.0",
+  "description": "RESTAURANT MANAGEMENT SYSTEM",
+  "main": "index.js",
+  "workspaces": {
+    "packages": ["apps/*", "packages/*"]
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm run start --prefix apps/api\" \"vite --port 5173 --mode development --root apps/web\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tuangpi/restaurant_mng.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Tuangpi/restaurant_mng/issues"
+  },
+  "homepage": "https://github.com/Tuangpi/restaurant_mng#readme",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "concurrently": "^8.0.0",
+    "typescript": "^7.0.2"
+  }
+}

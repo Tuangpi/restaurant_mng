@@ -1,0 +1,17 @@
+{
+  "name": "restaurant-mng-shared",
+  "version": "1.0.0",
+  "description": "Shared types, constants, and Zod schemas for restaurant_mng monorepo",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build --force",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  }
+}

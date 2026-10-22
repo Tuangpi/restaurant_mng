@@ -1,0 +1,236 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  phone       String?
+  name        String
+  status      String   @default("ACTIVE")
+  passwordHash String
+  createdAt   DateTime @default(now())
+  memberships Membership[]
+  cashierShifts CashierShift[]
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  status      String   @default("ACTIVE")
+  currency    String   @default("MMK")
+  memberships Membership[]
+  orders      Order[]
+  reportDailySales ReportDailySales[]
+  inventoryMovements InventoryMovement[]
+  cashierShifts CashierShift[]
+  refunds Refund[]
+  tables Table[]
+  payments Payment[]
+}
+
+model Membership {
+  tenantId String
+  userId   String
+  role     String
+  status   String   @default("ACTIVE")
+
+  @@unique([tenantId, userId])
+  user    User    @relation(fields: [userId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+}
+
+model MenuCategory {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  nameMm      String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  items       MenuItem[]
+
+  @@unique([tenantId, name])
+}
+
+model MenuItem {
+  id          String   @id @default(uuid())
+  tenantId    String
+  categoryId  String?
+  name        String
+  nameMm      String?
+  price       Int      // integer MMK
+  costPrice   Int?
+  isActive    Boolean  @default(true)
+  isAvailable Boolean  @default(true)
+
+  category    MenuCategory? @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+}
+
+model Table {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String?
+  area        String?
+  seats       Int
+  status      String   @default("AVAILABLE")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  orders   Order[]
+}
+
+model Order {
+  id               String   @id @default(uuid())
+  tenantId         String
+  orderNumber    Int      @default(1)
+  type             String
+  tableId          String?
+  status           String
+  paymentStatus    String
+  subtotal         Int
+  discount         Int      @default(0)
+  tax              Int      @default(0)
+  serviceCharge    Int      @default(0)
+  total            Int
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  table    Table?   @relation(fields: [tableId], references: [id])
+  orderItems OrderItem[]
+  payments Payment[]
+  orderHistory OrderStatusHistory[]
+  inventoryMovements InventoryMovement[]
+  refunds Refund[]
+}
+
+model OrderItem {
+  id            String   @id @default(uuid())
+  orderId       String
+  menuItemId    String?
+  name          String   // snapshot
+  unitPrice     Int      // snapshot in MMK
+  quantity      Int
+  lineTotal     Int
+  status        String     @default("PENDING")
+
+  order  Order  @relation(fields: [orderId], references: [id])
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id])
+}
+
+model OrderStatusHistory {
+  id           String   @id @default(uuid())
+  orderId      String
+  fromStatus   String?
+  toStatus     String
+  changedById  String?
+  changedAt    DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Payment {
+  id               String   @id @default(uuid())
+  tenantId         String
+  orderId          String
+  shiftId          String?
+  method           String
+  amount           Int      // integer MMK
+  tendered         Int?
+  change           Int?
+  reference        String?
+  status           String
+  verifiedById     String?
+  verifiedAt       DateTime?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  order Order    @relation(fields: [orderId], references: [id])
+  shift CashierShift? @relation(fields: [shiftId], references: [id])
+  refunds Refund[]
+}
+
+model Refund {
+  id          String   @id @default(uuid())
+  tenantId    String
+  paymentId   String
+  orderId     String
+  amount      Int      // integer MMK
+  reason      String
+  method      String
+  status      String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  payment Payment @relation(fields: [paymentId], references: [id])
+  order Order   @relation(fields: [orderId], references: [id])
+}
+
+model CashierShift {
+  id               String   @id @default(uuid())
+  tenantId         String
+  userId           String
+  status           String
+  openingFloat     Int      // integer MMK
+  closingCash      Int      // integer MMK
+  expectedCash     Int      // integer MMK
+  difference       Int      // integer MMK
+  openedAt         DateTime @default(now())
+  closedAt         DateTime?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  payments Payment[]
+}
+
+model ReportDailySales {
+  id             String   @id @default(uuid())
+  tenantId       String
+  date           DateTime
+  orderCount     Int
+  grossSales     Int
+  discounts      Int
+  tax            Int
+  serviceCharge  Int
+  netSales       Int
+  refunded       Int
+  createdAt      DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model InventoryItem {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  unit        String
+  quantityOnHand Int   @default(0)
+  reorderLevel Int      @default(0)
+  minQuantity Int      @default(0)
+
+  @@unique([tenantId, name])
+
+  inventoryMovements InventoryMovement[]
+}
+
+model InventoryMovement {
+  id               String   @id @default(uuid())
+  tenantId         String
+  inventoryItemId  String
+  type             String   // e.g. "ADJUSTMENT", "ISSUE", "RECEIPT"
+  quantity         Int
+  reason           String?
+  orderId          String?
+  createdAt        DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id])
+}
