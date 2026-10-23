@@ -4,7 +4,10 @@
   "description": "RESTAURANT MANAGEMENT SYSTEM",
   "main": "index.js",
   "workspaces": {
-    "packages": ["apps/*", "packages/*"]
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ]
   },
   "directories": {
     "doc": "docs"
@@ -26,8 +29,15 @@
   },
   "homepage": "https://github.com/Tuangpi/restaurant_mng#readme",
   "devDependencies": {
+    "@prisma/config": "^7.10.1",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.5",
-    "concurrently": "^8.0.0",
+    "concurrently": "^8.2.2",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express-rate-limit": "^8.7.1",
+    "jsonwebtoken": "^9.0.3"
   }
 }

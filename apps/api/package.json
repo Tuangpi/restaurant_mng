@@ -19,16 +19,19 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.0",
     "@types/express": "^5.0.0",
     "@types/helmet": "^4.0.0",
     "@types/node": "^20.0.0",
+    "nodemon": "^3.1.0",
     "prisma": "^7.10.1",
-    "@prisma/client": "^7.10.1",
-    "@prisma/adapter-pg": "^7.10.1",
     "supertest": "^7.0.0",
-    "typescript": "^5.7.0",
-    "nodemon": "^3.1.0"
+    "typescript": "^5.7.0"
+  },
+  "prisma": {
+    "schema": "./prisma/schema.prisma"
   }
 }

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { Express, Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
+import authRouter from "./auth.routes";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -16,6 +17,9 @@ const port = process.env.PORT || 4000;
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173", credentials: true }));
 app.use(express.json({ limit: "10kb" }));
+
+// Auth routes
+app.use("/api/auth", authRouter);
 
 // Health endpoints
 app.get("/api/health", (_req: Request, res: Response) => {
