@@ -3,6 +3,7 @@ import express, { Express, Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import authRouter from "./auth.routes";
+import tenantRouter from "./tenant.routes";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -20,6 +21,9 @@ app.use(express.json({ limit: "10kb" }));
 
 // Auth routes
 app.use("/api/auth", authRouter);
+
+// Tenant and membership routes
+app.use("/api/tenants", tenantRouter);
 
 // Health endpoints
 app.get("/api/health", (_req: Request, res: Response) => {

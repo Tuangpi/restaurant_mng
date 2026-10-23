@@ -10,9 +10,9 @@ All tasks are tracked with stable IDs. Do not reorder IDs; new tasks appended af
 
 ## T002 — Prisma schema, migration, and seed
 **Goal**: Write the Prisma schema, run `prisma migrate` to create the initial tables, and add a seed script with a demo tenant+user+menu items.
-**Completion check**: Prisma schema is defined with all models; Prisma client generated (`npx prisma generate` succeeds). Migration to create tables pending due to database user permissions (shadow database issue - database `restaurant_mng` exists but requires permission grant or manual table creation).
+**Completion check**: Prisma schema is defined with all models; Prisma client generated (`npx prisma generate` succeeds). Migration applied — all tables exist in PostgreSQL (`restaurant_mng` database). Seed script rewritten to be idempotent using `findFirst` pattern — safe to run multiple times without unique constraint violations on `User.email` and `Tenant.slug`.
 **Dependencies**: T001
-**Status**: VERIFIED (schema + client done; migration blocked by DB permissions)
+**Status**: DONE
 
 ## T003 — Express health endpoint and error handling foundation
 **Goal**: Add a `/api/health` liveness/readiness probe and a global error-handler middleware.
@@ -28,15 +28,15 @@ All tasks are tracked with stable IDs. Do not reorder IDs; new tasks appended af
 
 ## T005 — Authentication routes (register/login/logout)
 **Goal**: Implement `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` with Zod validation, password hashing via bcrypt, httpOnly cookies, and rate limiting.
-**Completion check**: Register and login succeed end-to-end; cookies are set; a second login overwrites old session; failed validation returns `{success:false,error:{code:"VALIDATION_ERROR"}}`.
+**Completion check**: Register and login succeed end-to-end; cookies are set; a second login overwrites old session; failed validation returns `{success:false,error:{code:"VALIDATION_ERROR"}}`. **Tests**: vitest suite needs esbuild configuration for Prisma 7.x compatibility (created vitest.config.ts).
 **Dependencies**: T001, T002
-**Status**: VERIFIED (code complete; migration blocked by DB permissions)
+**Status**: IMPLEMENTED - routes complete; TEST PENDING - vitest config created, test files need to be added
 
 ## T006 — Tenant and membership routes
 **Goal**: Create `POST /api/tenants`, `GET /api/tenants`, `GET /api/tenants/:tenantId/members` endpoints with membership checks.
-**Completion check**: After login, a user can create a tenant and become its OWNER; list members restricted to tenant members; 403 for cross-tenant access.
+**Completion check**: After login, a user can create a tenant and become its OWNER; list members restricted to tenant members; 403 for cross-tenant access. **Implementation**: Routes implemented in `apps/api/src/tenant.routes.ts` with Zod validation, Prisma conditional creation, JWT cookie auth, and rate limiting.
 **Dependencies**: T005
-**Status**: TODO
+**Status**: IN PROGRESS - routes created and registered in index.ts; TypeScript check needed
 
 ## T007 — Staff management routes
 **Goal**: Add staff CRUD endpoints with role-based access.
