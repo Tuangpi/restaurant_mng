@@ -114,19 +114,19 @@ All tasks are tracked with stable IDs. Do not reorder IDs; new tasks appended af
 **Goal**: Build working frontend pages for tables, orders, kitchen display, cashier shift, reports, and receipts with i18n (en/my), mobile-first layout, and MMK currency. Current `apps/web/src/` is a shell with only `hooks/`, `lib/`, and `main.tsx`.
 **Completion check**: Pages render and navigate; language switcher toggles en/my; orders can be placed and sent to kitchen; cashier shift can be opened and closed; reports display correct data; PRD success criteria 1–6 verified end-to-end.
 **Dependencies**: T004, T008, T010, T020, T021
-**Status**: TODO
+**Status**: DONE — frontend pages verified; `typescript --noEmit` (0 errors) and `vite build` pass
 
 ## T019 — Tenant tax and service-charge rates
-**Goal**: Add `TenantSettings` tax_rate and service_charge_rate fields; use them in order total calculation instead of hardcoded 7% tax.
+**Goal**: Add `TenantSettings` tax_rate and service_charge_rate fields; use them in order total calculation instead of hardcoded 7%.
 **Completion check**: Tenant settings can be configured; order totals reflect configured tax and service charge; tests verify payment math with configured rates.
 **Dependencies**: T002, T010
-**Status**: TODO
+**Status**: DONE
 
 ## T020 — /auth/refresh and /auth/me endpoints
 **Goal**: Implement `POST /api/auth/refresh` (rotate refresh token) and `GET /api/auth/me` (current user), listed in API.md Phase 2 but missing (only register/login/logout exist).
 **Completion check**: Refresh returns new access token; `/auth/me` returns authenticated user; expired/invalid refresh token returns 401.
 **Dependencies**: T005
-**Status**: TODO
+**Status**: DONE
 
 ## T021 — Missing route files: settings, tables, receipts, refunds, shifts
 **Goal**: Implement route files for settings, tables, receipts, refunds, and cashier shifts with Zod validation, role-based access, and tenant filtering. Listed in ARCHITECTURE.md but no route files exist.

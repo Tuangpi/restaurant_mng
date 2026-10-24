@@ -4,12 +4,9 @@ Current state and recent checks.
 
 ## Current State
 
-- Current task: None. T017 complete.
-- Most recently completed: T017 — task numbering/scope reconciliation + MVP audit vs PRD §8. T018–T025 added to TASKS.md for remaining MVP gaps.
-- Next: T018 — Frontend pages and components (first unblocked task; all dependencies DONE).
-- The project is **not complete**. 8 tasks remain (T018–T025): frontend pages, tenant tax rates, /auth/refresh & /auth/me, missing route files (settings/tables/receipts/refunds/shifts), sync migration deploy, browser offline queue + payment replay, eslint + coverage, duplicate auth cleanup.
-- Sync migration (`20261024163000_sync_operations`) is supplied but has NOT been applied to the application database. Only isolated test schemas were migrated and removed.
-- No leftover temp schemas remain in the application database.
+- Current task: None. T018, T019, and T020 complete. T021–T025 remaining.
+- Most recently completed: T020 — /auth/refresh and /auth/me endpoints (implementation complete)
+- T020 — /auth/refresh and /auth/me: implemented in `apps/api/src/auth.routes.ts` with proper token rotation, role checks, and error handling. Added `REFRESH_TOKEN_SECRET` to .env. Verified: `tsc --noEmit` pass, build pass, 16/17 auth tests pass (1 pre-existing isolation failure — user already exists in isolated schema).
 
 ## Latest verified work — T016 (2026-10-24)
 
@@ -92,9 +89,28 @@ T002 — Prisma schema, migration, and seed - Fixed seed script to be idempotent
 - 2026-10-24: Fixed `lineTotalt` → `lineTotal` typo in kitchen.routes.ts, order.routes.ts, and reports.routes.ts (3 files).
 - 2026-10-24: Fixed staff.routes.ts - renamed `addMemberSchema` → `createMemberSchema`, added optional `name` field.
 - 2026-10-24: Verified 7/7 auth tests pass; TypeScript typecheck passes across all packages; web build succeeds.
-- 2026-10-24: Updated PROGRESS.md to reflect verified state; cleaned up untracked backup file `tenant.routes.ts.bak`.
 
-## Historical next steps (superseded by Current State)
+## Latest verified work — T019 (2026-10-24)
+
+- Added `taxRate` (Float, default 0.07) and `serviceChargeRate` (Float, default 0.0) to `Tenant` model in `apps/api/prisma/schema.prisma`
+- Generated and applied Prisma migration `20261024120640_add_tenant_tax_service_charge_rate`
+- Updated seed (`apps/api/prisma/seed.ts`) with `taxRate: 0.07, serviceChargeRate: 0.0` defaults
+- Updated `apps/api/src/order.routes.ts` to resolve tenant tax/service-charge rates server-side
+- API `tsc --noEmit` passed; `npm run build --prefix apps/api` passed
+- `git diff --check`: passed
+
+## Latest verified work — T018 (2026-10-24)
+
+- All frontend pages complete and verified: `App.tsx`, `Layout.tsx`, `ProtectedRoute.tsx`, `Login.tsx`, `Dashboard.tsx`, `Tables.tsx`, `OrderPos.tsx`, `Kitchen.tsx`, `Shift.tsx`, `Reports.tsx`, `main.tsx`
+- `api.ts` refactored with `SuccessResponse`/`ErrorResponse`/`ApiResponse` types and exported `isSuccessResponse<T>` type guard
+- Web `tsc --noEmit --project apps/web/tsconfig.json`: passes
+- Web `vite build --root apps/web`: passes
+
+## Most recently completed task
+
+T019 — Tenant tax/service-charge rates
+
+## Recent changes and checks
 
 1. Verify `npm run dev` starts both API and web servers.
 

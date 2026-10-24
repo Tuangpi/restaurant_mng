@@ -14,6 +14,8 @@ async function main() {
         name: 'Green Tea House',
         slug: 'green-tea-house',
         currency: 'MMK',
+        taxRate: 0.07,
+        serviceChargeRate: 0.0,
         status: 'ACTIVE',
       },
     });

@@ -23,7 +23,11 @@ beforeAll(async () => {
   await admin.connect()
   await admin.query(`CREATE SCHEMA "${schema}"`)
   await admin.query(`SET search_path TO "${schema}"`)
-  for (const migration of ["20261023064949", "20261024163000_sync_operations"]) {
+  for (const migration of [
+    "20261023064949",
+    "20261024120640_add_tenant_tax_service_charge_rate",
+    "20261024163000_sync_operations",
+  ]) {
     await admin.query(await readFile(new URL(`../prisma/migrations/${migration}/migration.sql`, import.meta.url), "utf8"))
   }
   const url = new URL(originalUrl!)

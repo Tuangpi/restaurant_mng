@@ -20,20 +20,22 @@ model User {
 }
 
 model Tenant {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String   @unique
-  status      String   @default("ACTIVE")
-  currency    String   @default("MMK")
-  memberships Membership[]
-  orders      Order[]
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  status           String   @default("ACTIVE")
+  currency         String   @default("MMK")
+  taxRate          Float    @default(0.07) // 7% tax as decimal
+  serviceChargeRate Float   @default(0.0)  // 0% service charge as decimal
+  memberships      Membership[]
+  orders           Order[]
   reportDailySales ReportDailySales[]
   inventoryMovements InventoryMovement[]
-  cashierShifts CashierShift[]
-  refunds Refund[]
-  tables Table[]
-  payments Payment[]
-  syncOperations SyncOperation[]
+  cashierShifts    CashierShift[]
+  refunds          Refund[]
+  tables           Table[]
+  payments         Payment[]
+  syncOperations   SyncOperation[]
 }
 
 model Membership {

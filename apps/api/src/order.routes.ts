@@ -143,8 +143,15 @@ router.post(
       }
 
       const discount = 0; // Will be calculated later if needed
-      const tax = Math.round(subtotal * 0.07); // 7% tax
-      const serviceCharge = 0;
+      // Use tenant-configured tax and service charge rates
+      const taxRate = (await prisma.tenant.findUnique({
+        where: { id: tenantId },
+      }))?.taxRate ?? 0.07;
+      const serviceChargeRate = (await prisma.tenant.findUnique({
+        where: { id: tenantId },
+      }))?.serviceChargeRate ?? 0.0;
+      const tax = Math.round(subtotal * taxRate);
+      const serviceCharge = Math.round(subtotal * serviceChargeRate);
       const total = subtotal + tax + serviceCharge - discount;
 
       // Generate order number

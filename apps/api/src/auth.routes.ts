@@ -97,4 +97,138 @@ router.post("/logout", (_req: Request, res: Response) => {
   res.json({ success: true, data: { message: "Logged out successfully." } });
 });
 
+// POST /api/auth/refresh - rotate refresh token, return new access token
+router.post(
+  "/refresh",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false }),
+  async (req: Request, res: Response) => {
+    try {
+      const cookie = req.cookies?.["refresh_token"];
+      if (!cookie) {
+        return res.status(401).json({
+          success: false,
+          error: { code: "AUTHENTICATION_ERROR", message: "Refresh token missing" },
+        });
+      }
+
+      let payload: { userId: string; email: string; exp: number };
+      try {
+        payload = jwt.verify(
+          cookie,
+          process.env.REFRESH_TOKEN_SECRET || "restaurant-mng-refresh-secret"
+        ) as {
+          userId: string;
+          email: string;
+          exp: number;
+        };
+      } catch {
+        return res.status(401).json({
+          success: false,
+          error: { code: "AUTHENTICATION_ERROR", message: "Invalid or expired refresh token" },
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, email: true, name: true },
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: { code: "AUTHENTICATION_ERROR", message: "User no longer exists" },
+        });
+      }
+
+      // Rotate: issue a new access token and a new refresh token
+      const accessToken = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.ACCESS_TOKEN_SECRET || "restaurant-mng-access-secret",
+        { expiresIn: "15m" }
+      );
+
+      const newRefreshToken = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.REFRESH_TOKEN_SECRET || "restaurant-mng-refresh-secret",
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("access_token", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 15 * 60 * 1000,
+      });
+
+      res.cookie("refresh_token", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.json({
+        success: true,
+        data: { user: { id: user.id, email: user.email, name: user.name }, accessToken },
+      });
+    } catch (err) {
+      console.error("Error refreshing access token:", err);
+      res.status(500).json({
+        success: false,
+        error: { code: "INTERNAL_ERROR", message: "Failed to refresh token" },
+      });
+    }
+  }
+);
+
+// GET /api/auth/me - return the currently authenticated user
+router.get(
+  "/me",
+  async (req: Request, res: Response) => {
+    try {
+      const cookie = req.cookies?.["access_token"];
+      if (!cookie) {
+        return res.status(401).json({
+          success: false,
+          error: { code: "AUTHENTICATION_ERROR", message: "Access token missing" },
+        });
+      }
+
+      let payload: { userId: string; email: string; exp: number };
+      try {
+        payload = jwt.verify(cookie, process.env.ACCESS_TOKEN_SECRET || "restaurant-mng-access-secret") as {
+          userId: string;
+          email: string;
+          exp: number;
+        };
+      } catch {
+        return res.status(401).json({
+          success: false,
+          error: { code: "AUTHENTICATION_ERROR", message: "Invalid or expired access token" },
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, email: true, name: true },
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: { code: "AUTHENTICATION_ERROR", message: "User no longer exists" },
+        });
+      }
+
+      res.json({ success: true, data: { user } });
+    } catch (err) {
+      console.error("Error fetching current user:", err);
+      res.status(500).json({
+        success: false,
+        error: { code: "INTERNAL_ERROR", message: "Failed to fetch current user" },
+      });
+    }
+  }
+);
+
 export default router;

@@ -34,6 +34,10 @@ app.use("/api/kitchen", kitchenRouter);
 import syncRouter from "./sync.routes.ts";
 app.use("/api/sync", syncRouter);
 
+// Auth routes
+import authRouter from "./auth.routes.ts";
+app.use("/api/auth", authRouter);
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
