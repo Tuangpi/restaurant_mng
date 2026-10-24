@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
-import app from '../src/index'
+import app from '../src/index.ts'
 
 describe('Auth Routes', () => {
-  beforeEach(() => {
-    // Clear cookies before each test
-    // We'll setup a test user before login tests
+  beforeEach(async () => {
+    // Clear database state between tests for test isolation
+    const { PrismaClient } = require('@prisma/client')
+    const { PrismaPg } = require('@prisma/adapter-pg')
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+    const prisma = new PrismaClient({ adapter })
+    await prisma.user.deleteMany({})
+    await prisma.$disconnect()
   })
 
   describe('POST /api/auth/register', () => {
@@ -119,7 +124,7 @@ describe('Auth Routes', () => {
       expect(response.status).toBe(200)
       expect(response.body.success).toBe(true)
       // Cookie should be cleared
-      expect(response.headers['set-cookie'][0]).toContain('access_token=;')
+      expect(response.headers['set-cookie']?.[0]).toContain('access_token=;')
     })
   })
 })

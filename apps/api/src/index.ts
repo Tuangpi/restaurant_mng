@@ -1,17 +1,14 @@
-const app = express()
-import express from "express"
-import tenantRouter from "./tenant.routes";
-import staffRouter from "./staff.routes";
-import orderRouter from "./order.routes";
-import paymentsRouter from "./payments.routes";
-import reportsRouter from "./reports.routes";
-import inventoryRouter from "./inventory.routes";
-import kitchenRouter from "./kitchen.routes";
-import "dotenv/config";
+import express from "express";
+import dotenv from "dotenv";
+dotenv.config();
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
+
+const app = express();
+
+app.use(express.json());
 
 // Tenant routes
 app.use("/api/tenants", tenantRouter);
@@ -65,10 +62,17 @@ const loginSchema = z.object({
 
 // Health check routes
 // POST /api/auth/register
+import tenantRouter from './tenant.routes.ts';
+import staffRouter from './staff.routes.ts';
+import orderRouter from './order.routes.ts';
+import paymentsRouter from './payments.routes.ts';
+import reportsRouter from './reports.routes.ts';
+import inventoryRouter from './inventory.routes.ts';
+import kitchenRouter from './kitchen.routes.ts';
 app.post("/api/auth/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
   const validation = validate(registerSchema, req.body);
   if (!validation.success) {
-    return res.status(400).json(validation.error);
+    return res.status(400).json({ success: false, error: validation.error });
   }
 
   const { email, password, name } = validation.data as any;
@@ -100,7 +104,7 @@ app.post("/api/auth/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, s
 app.post("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
   const validation = validate(loginSchema, req.body);
   if (!validation.success) {
-    return res.status(400).json(validation.error);
+    return res.status(400).json({ success: false, error: validation.error });
   }
 
   const { email, password } = validation.data as any;

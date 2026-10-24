@@ -24,7 +24,7 @@ export function useLanguage() {
         subtitle: "Point of Sale System",
       },
     };
-    return translations[language][key] || key;
+    return translations[language]?.[key] || key;
   };
 
   return { t, switchLanguage, language };

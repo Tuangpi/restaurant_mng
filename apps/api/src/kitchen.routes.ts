@@ -15,7 +15,7 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const router = express();
+const router = express.Router();
 
 // Rate limit for kitchen routes
 const kitchenRateLimit = rateLimit({
@@ -109,29 +109,56 @@ router.get(
       });
 
       // Transform orders for kitchen display
-      const kitchenOrders = orders.map(order => {
-        const statusHistory = order.orderHistory.map(oh => ({
-          status: oh.status,
-          changedAt: oh.changedAt,
-        })).filter((h, idx, arr) => idx === 0 || h.status !== arr[idx - 1].status);
+      interface OrderHistoryEntry {
+  status: string;
+  changedAt: Date;
+}
 
-        return {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          type: order.type,
-          status: order.status,
-          tableId: order.tableId,
-          createdAt: order.createdAt,
-          items: order.orderItems.map(oi => ({
-            id: oi.id,
-            name: oi.name,
-            quantity: oi.quantity,
-            unitPrice: oi.unitPrice,
-            lineTotal: oi.lineTotalt,
-          })),
-          statusHistory,
-        };
-      });
+interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+interface Order {
+  id: string;
+  orderNumber: string;
+  type: string;
+  status: string;
+  tableId: string | null;
+  createdAt: Date;
+  orderHistory: OrderHistoryEntry[];
+  orderItems: OrderItem[];
+}
+
+// Transform orders for kitchen display
+const kitchenOrders = orders.map((order: Order) => {
+  const statusHistory = order.orderHistory.map((oh: OrderHistoryEntry) => ({
+    status: oh.status,
+    changedAt: oh.changedAt,
+  })).filter(
+    (h: { status: string }, idx: number, arr: OrderHistoryEntry[]) => idx === 0 || h.status !== arr[idx - 1]?.status,
+  );
+
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    type: order.type,
+    status: order.status,
+    tableId: order.tableId,
+    createdAt: order.createdAt,
+    items: order.orderItems.map((oi: OrderItem) => ({
+      id: oi.id,
+      name: oi.name,
+      quantity: oi.quantity,
+      unitPrice: oi.unitPrice,
+      lineTotal: oi.lineTotal,
+    })),
+    statusHistory,
+  };
+});
 
       res.json({
         success: true,

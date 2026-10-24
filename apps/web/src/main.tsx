@@ -1,7 +1,7 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useLanguage } from "./hooks/useLanguage";
+import { useLanguage } from "./hooks/useLanguage.ts";
 
 const router = createBrowserRouter([
   {

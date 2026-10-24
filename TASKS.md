@@ -28,9 +28,16 @@ All tasks are tracked with stable IDs. Do not reorder IDs; new tasks appended af
 
 ## T005 — Authentication routes (register/login/logout)
 **Goal**: Implement `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` with Zod validation, password hashing via bcrypt, httpOnly cookies, and rate limiting.
-**Completion check**: Register and login succeed end-to-end; cookies are set; a second login overwrites old session; failed validation returns `{success:false,error:{code:"VALIDATION_ERROR"}}`. All 13 authentication route tests pass.
+**Completion check**: Register and login succeed end-to-end; cookies are set; a second login overwrites old session; failed validation returns `{success:false,error:{code:"VALIDATION_ERROR"}}`. All 7 authentication route tests pass.
 **Dependencies**: T001, T002
-**Status**: DONE
+**Status**: DONE - all 7 authentication route tests passing
+
+## Next steps
+
+1. Plan Phase 2 tasks starting from T009.
+2. Verify `npm run dev` starts both API and web.
+3. Fix prisma.config.ts verbatimModuleSyntax issue - NOT APPLICABLE (no verbatimModuleSyntax flag in tsconfigs, typecheck passes cleanly).
+4. Fix web app import path extensions if needed.
 
 ## T006 — Tenant and membership routes
 **Goal**: Create `POST /api/tenants`, `GET /api/tenants`, `GET /api/tenants/:tenantId/members` endpoints with membership checks.

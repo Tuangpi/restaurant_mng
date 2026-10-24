@@ -5,5 +5,5 @@ module.exports = defineConfig({
     globals: true,
     environment: 'node',
   },
-  esbuild: false,
+  esbuild: true,
 })

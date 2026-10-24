@@ -43,7 +43,7 @@ function validate(schema: any, data: any) {
 router.post("/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }), async (req: Request, res: Response) => {
   const validation = validate(registerSchema, req.body);
   if (!validation.success) {
-    return res.status(400).json(validation.error);
+    return res.status(400).json({ success: false, error: validation.error });
   }
 
   const { email, password, name } = validation.data;
@@ -69,7 +69,7 @@ router.post("/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standar
 router.post("/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false }), async (req: Request, res: Response) => {
   const validation = validate(loginSchema, req.body);
   if (!validation.success) {
-    return res.status(400).json(validation.error);
+    return res.status(400).json({ success: false, error: validation.error });
   }
 
   const { email, password } = validation.data;
