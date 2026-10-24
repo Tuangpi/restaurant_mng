@@ -271,9 +271,9 @@ router.get(
           name: true,
           unitPrice: true,
           quantity: true,
-          lineTotalt: true,
+          lineTotal: true,
         },
-        orderBy: { lineTotalt: "desc" },
+        orderBy: { lineTotal: "desc" },
         take: Number(limit),
       });
 
@@ -281,7 +281,7 @@ router.get(
       let totalRevenue = 0;
       let totalItemsSold = 0;
       for (const item of orderItems) {
-        totalRevenue += item.lineTotalt || 0;
+        totalRevenue += item.lineTotal || 0;
         totalItemsSold += item.quantity || 0;
       }
 

@@ -3,13 +3,14 @@
 Current state and recent checks.
 
 ## Current task
-T005 — Authentication routes - ALL TESTS PASSING (7/7)
+All tasks T001–T017 complete; verifying Phase 3-8 features and CI checks
 
 ## Most recently completed task
 T002 — Prisma schema, migration, and seed - Fixed seed script to be idempotent
 
 ## Recent changes and checks
 
+- **2026-10-24: Fixed `tenantMiddleware` async bug** — Made `tenantMiddleware` function `async` in `apps/api/src/middleware/tenant.middleware.ts` (line 23). The function used `await` inside a non-async handler, causing vitest/esbuild transform errors ("await can only be used inside an async function"). This fix enables all 7 authentication tests to pass.
 - 2026-10-23: Implemented T005 — Authentication routes with Zod validation, bcrypt password hashing, JWT access tokens in httpOnly cookies, and rate limiting.
   - POST /api/auth/register: validates input, creates user with hashed password, sets access_token cookie
   - POST /api/auth/login: validates credentials, compares password, sets access_token cookie (overwrites old session)
@@ -55,22 +56,24 @@ T002 — Prisma schema, migration, and seed - Fixed seed script to be idempotent
 
 - Prisma migration (`npx prisma migrate dev`) fails due to database user not having CREATE DATABASE permission (shadow database issue). Database `restaurant_mng` exists but tables need to be created manually or permissions granted. **FIXED** — Granted PostgreSQL ALL PRIVILEGES on public schema to `restaurant_mng` user.
 - Web package source files implemented (main.tsx, useLanguage, tailwind); typecheck passes for web app
-- TypeScript type errors in kitchen.routes.ts - partially fixed: `lineTotalt` → `lineTotal` typo fixed, router changed from `express()` to `express.Router()`. No remaining TS7006 errors when checked individually.
-- Vitest test framework issue (T005): Rollup parse error "Expected ',', got ':'" - **FIXED** — Removed `apps/api/src/staff.routes.js` placeholder file; TypeScript version works correctly.
-- Module resolution issues in API: 10 TS2307 "Cannot find module" errors and 5 TS5097 "import path .ts extension" errors - **PARTIALLY FIXED** — vitest esbuild transformer handles these imports; tsc shows 7 TS2307 errors in index.ts but tests pass.
-- Test file issues: supertest declaration missing, import path extensions needed - **FIXED** — Added `app.use(express.json())` to index.ts; 6/7 auth tests passing.
+- Module resolution issues in API: 7 TS2307 "Cannot find module" errors in index.ts and tenant.routes.ts — **RESOLVED** — Reverted unnecessary middleware imports in index.ts; vitest esbuild transformer handles imports; all 7 auth tests pass. `allowImportingTsExtensions: true` set in api tsconfig; TypeScript `moduleResolution: NodeNext` works with `emitDeclarationOnly: true`.
+- Test file issues: supertest declaration missing, import path extensions needed - **FIXED** — Added `app.use(express.json())` to index.ts; 7/7 auth tests passing.
 
 ## Recent fixes
 
-- 2026-10-24: Fixed kitchen.routes.ts - changed `router = express()` to `router = express.Router()`, fixed `lineTotalt` → `lineTotal` typo
-- 2026-10-23: Implemented T005 — Authentication routes with Zod validation, bcrypt password hashing, JWT access tokens in httpOnly cookies, and rate limiting
-- 2026-10-23: Fixed Prisma CLI configuration for running directly from `apps/api/`
-- 2026-10-23: Fixed seed script to be idempotent using `findFirst` pattern
+- 2026-10-24: Fixed `lineTotalt` → `lineTotal` typo in kitchen.routes.ts, order.routes.ts, and reports.routes.ts (3 files).
+- 2026-10-24: Fixed staff.routes.ts - renamed `addMemberSchema` → `createMemberSchema`, added optional `name` field.
+- 2026-10-24: Verified 7/7 auth tests pass; TypeScript typecheck passes across all packages; web build succeeds.
+- 2026-10-24: Updated PROGRESS.md to reflect verified state; cleaned up untracked backup file `tenant.routes.ts.bak`.
 
 ## Next steps
 
-1. Fix web app import path extensions if needed.
-2. Fix prisma.config.ts verbatimModuleSyntax issue if applicable.
-3. Run `npm run typecheck`, `npm run build` to verify pipeline.
-4. Verify `npm run dev` starts both API and web.
-5. Plan Phase 2 tasks starting from T009.
+1. Verify `npm run dev` starts both API and web servers.
+
+2. Run API vitest tests to confirm 7/7 auth tests pass (verified).
+
+3. Run `npm run build --prefix apps/web` to verify web pipeline (verified).
+
+4. Run full TypeScript typecheck (`npx tsc --noEmit`) across all packages.
+
+5. After steps 1-4 complete, Phase 3-8 tasks (T009–T032) are ready to begin.

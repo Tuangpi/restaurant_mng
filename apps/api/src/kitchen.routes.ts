@@ -94,7 +94,7 @@ router.get(
               name: true,
               quantity: true,
               unitPrice: true,
-              lineTotalt: true,
+              lineTotal: true,
             },
           },
           orderHistory: {

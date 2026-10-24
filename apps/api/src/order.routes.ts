@@ -176,7 +176,7 @@ router.post(
             name: item.name,
             unitPrice: item.unitPrice,
             quantity: item.quantity,
-            lineTotalt: item.lineTotal,
+            lineTotal: item.lineTotal,
           },
         });
       }

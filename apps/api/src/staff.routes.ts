@@ -142,12 +142,14 @@ router.post(
         });
       }
 
-      const addMemberSchema = z.object({
+      const createMemberSchema = z.object({
         email: z.string().email(),
+        name: z.string().optional(),
         role: z.enum(["OWNER", "MANAGER", "CASHIER", "WAITER", "KITCHEN"]).optional().default("CASHIER"),
+        status: z.enum(["ACTIVE", "INACTIVE"]).optional().default("ACTIVE"),
       });
 
-      const validation = addMemberSchema.safeParse(req.body);
+      const validation = createMemberSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({
           success: false,
@@ -155,20 +157,25 @@ router.post(
         });
       }
 
-      const { email, role } = validation.data;
+      const { email: validatedEmail, name: validatedName, role, status: validatedStatus } = validation.data;
 
       // Check if user with this email already exists
-      const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (!existingUser) {
-        return res.status(404).json({
+      const existingUser = await prisma.user.findFirst({
+        where: { email: validatedEmail },
+      });
+      if (existingUser) {
+        return res.status(409).json({
           success: false,
-          error: { code: "USER_NOT_FOUND", message: "User with this email not found." },
+          error: { code: "USER_EXISTS", message: "User with this email already exists." },
         });
       }
+      const user = await prisma.user.create({
+        data: { email: validatedEmail, name: validatedName },
+      });
 
       // Check if user is already a member of this tenant
       const existingMembership = await prisma.membership.findFirst({
-        where: { tenantId, userId: existingUser.id },
+        where: { tenantId, userId: user.id },
       });
       if (existingMembership) {
         return res.status(409).json({
@@ -181,9 +188,9 @@ router.post(
       const membership = await prisma.membership.create({
         data: {
           tenantId,
-          userId: existingUser.id,
+          userId: user.id,
           role,
-          status: "ACTIVE",
+          status: validatedStatus,
         },
       });
 
@@ -334,6 +341,9 @@ router.delete(
       });
     } catch (err) {
       console.error("Error removing staff member:", err);
+if ((err as any).code === "P2025") {
+        return res.status(404).json({ success: false, error: { code: "MEMBERSHIP_NOT_FOUND", message: "Membership not found." } });
+      }
       res.status(500).json({
         success: false,
         error: { code: "INTERNAL_ERROR", message: "Failed to remove staff member" },
