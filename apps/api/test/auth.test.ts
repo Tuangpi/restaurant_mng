@@ -1,16 +1,49 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 import request from 'supertest'
+import express from 'express'
+import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import { config } from 'dotenv'
+import { Client } from 'pg'
+import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import app from '../src/index.ts'
 
-describe('Auth Routes', () => {
+// Never clean up the application database; run against an isolated temporary schema.
+// Force the app .env (postgres superuser, allowed to create temp schemas) over any
+// ambient vitest-loaded root .env so behavior is deterministic.
+const envPath = new URL('../.env', import.meta.url)
+const parsed = config({ path: envPath, override: true }).parsed ?? {}
+const originalUrl = (parsed.DATABASE_URL ?? process.env.DATABASE_URL)!
+const schema = `auth_test_${randomUUID().replaceAll("-", "")}`
+const admin = new Client({ connectionString: originalUrl })
+let prisma: PrismaClient
+
+beforeAll(async () => {
+  await admin.connect()
+  await admin.query(`CREATE SCHEMA "${schema}"`)
+  await admin.query(`SET search_path TO "${schema}"`)
+  for (const migration of ["20261023064949", "20261024163000_sync_operations"]) {
+    await admin.query(await readFile(new URL(`../prisma/migrations/${migration}/migration.sql`, import.meta.url), "utf8"))
+  }
+  const url = new URL(originalUrl!)
+  url.searchParams.set("schema", schema)
+  process.env.DATABASE_URL = url.toString()
+  prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url.toString() }, { schema }) })
+}, 20000)
+
+afterAll(async () => {
+  await prisma?.$disconnect()
+  await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`)
+  await admin.end()
+  if (originalUrl === undefined) delete process.env.DATABASE_URL
+  else process.env.DATABASE_URL = originalUrl
+})
+
+describe('Auth Routes (isolated PostgreSQL schema)', () => {
   beforeEach(async () => {
-    // Clear database state between tests for test isolation
-    const { PrismaClient } = require('@prisma/client')
-    const { PrismaPg } = require('@prisma/adapter-pg')
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-    const prisma = new PrismaClient({ adapter })
+    // Clear database state between tests for test isolation (isolated schema only)
     await prisma.user.deleteMany({})
-    await prisma.$disconnect()
   })
 
   describe('POST /api/auth/register', () => {

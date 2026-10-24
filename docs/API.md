@@ -315,6 +315,22 @@ returns `difference = closingCash - expectedCash`.
 An operation whose `idempotencyKey` was already applied returns `DUPLICATE` with the original
 entity id, so a client can safely retry the whole batch.
 
+Implementation status (2026-10-24): `ORDER` / `CREATE` is supported for active
+`OWNER`, `MANAGER`, `CASHIER`, and `WAITER` memberships, with a signed session cookie
+and `X-Tenant-Id`. Other entity/operation pairs return per-operation
+`REJECTED` / `UNSUPPORTED_OPERATION`; payment replay is not implemented.
+Batches contain 1–100 operations. Order payloads accept `type` (`DINE_IN`,
+`TAKEAWAY`, `DELIVERY`), optional `tableId`, and nonempty `items` containing only
+`menuItemId` and positive integer `quantity`. Prices, discounts, notes, and other
+extra payload fields are currently rejected rather than silently ignored.
+Totals currently use the existing online route's fixed 7% tax and zero service
+charge; configurable tenant rates remain unfinished. Each operation commits its
+order, item snapshots, history, and replay record atomically. Rejected operations
+can be corrected and retried with the same key. Successful keys are unique per
+tenant across devices. Sync writes serialize per tenant; the existing online
+order route does not yet share this locking/numbering strategy.
+The `SyncOperation` migration must be deployed before using this endpoint.
+
 ## 11. Phase 8 — Inventory
 
 | Method | Path | Auth | Purpose |

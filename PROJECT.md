@@ -60,20 +60,47 @@ best-seller reports, and recover from a network drop without losing an order.
 Architecture style: modular monolith, React SPA + Express API.
 
 
-## Milestones
+## Milestones (reconciled with TASKS.md)
 
-| Phase | Goal | Tasks |
+The working task list in [`TASKS.md`](TASKS.md) uses a condensed T001–T017 numbering that supersedes the original T001–T032 eight-phase map below. Task IDs are preserved and not renumbered.
+
+| TASKS.md task | Goal | Closest PRD phase |
 | --- | --- | --- |
-| 1 | Foundation: repo, database, health, error handling | T001–T004 |
-| 2 | Authentication, tenants, memberships, authorization | T005–T008 |
-| 3 | Restaurant settings, staff, and menu | T009–T012 |
-| 4 | Orders and POS | T013–T017 |
-| 5 | Payments, receipts, refunds, cashier shifts | T018–T022 |
-| 6 | Kitchen and reports | T023–T025 |
-| 7 | Offline synchronization | T026–T028 |
-| 8 | Inventory basics, security review, pilot readiness | T029–T032 |
+| T001–T004 | Monorepo, Prisma schema/seed, health endpoint, error handling, web shell | Phase 1 |
+| T005–T008 | Auth, tenants, memberships, staff, menu CRUD | Phase 2–3 |
+| T009–T012 | Orders, payments, reports, kitchen | Phase 4–6 |
+| T013 | Offline sync — server ORDER CREATE only | Phase 7 (partial) |
+| T014 | Inventory basics | Phase 8 |
+| T015 | Test suites (tenant isolation, payment math) | — |
+| T016 | Typecheck, build, full vitest suite | — |
+| T017 | Reconciliation + MVP audit (this session) | — |
+
+Original eight-phase map (T001–T032), retained for reference but no longer the working plan:
+- Phase 1 Foundation: T001–T004 · Phase 2 Auth/tenants/memberships/authorization: T005–T008 · Phase 3 Settings/staff/menu: T009–T012 · Phase 4 Orders/POS: T013–T017 · Phase 5 Payments/receipts/refunds/shifts: T018–T022 · Phase 6 Kitchen/reports: T023–T025 · Phase 7 Offline sync: T026–T028 · Phase 8 Inventory/security/pilot: T029–T032.
 
 Do not begin a phase until the current phase works and its checks pass.
+
+## MVP audit vs PRD §8 success criteria
+
+Pilot-ready = a restaurant can, without developer help, do all seven items. Evidence basis: T016 verified checks (typecheck/build/tests) plus this session's file/doc audit. Items claimed DONE in `TASKS.md` but not re-verified here are marked "claimed."
+
+| # | PRD success criterion | Status | Evidence / gap |
+|---|---|---|---|
+| 1 | Create staff accounts and assign roles | Claimed | T007 staff CRUD routes implemented/registered; not re-run this session |
+| 2 | Build bilingual menu with MMK prices | Claimed | T008 menu CRUD implemented; not re-run this session |
+| 3 | Seat customers, take orders, send to kitchen | Claimed | T009 orders + T012 kitchen claimed; not re-run this session |
+| 4 | Take cash/manual wallet payments, print receipts | Claimed (unverified) | T010 claimed; no `receipts.routes.ts` or `shifts.routes.ts` file exists — verify where shift/receipt logic lives |
+| 5 | Open/close cashier shift, balanced/explained drawer | Claimed (unverified) | T010 claimed; no `shifts.routes.ts` file exists |
+| 6 | Read daily sales and best-seller reports | Claimed | T011 reports claimed; not re-run this session |
+| 7 | Recover from network drop without losing an order | Partial | Server ORDER CREATE sync done (T013, 10 tests). **Missing:** browser offline capture queue, payment replay, sync migration not yet applied to application database |
+
+**Additional gaps found this session:**
+- Frontend is a shell: `apps/web/src/` contains only `hooks/`, `lib/`, `main.tsx` — no pages, components, or i18n (criteria 1–6 need a working frontend).
+- Tenant tax/service-charge rates unfinished: `API.md` sync section notes fixed 7% tax, zero service charge; `PRD` Phase 3 requires `TenantSettings` tax/service-charge rates.
+- `API.md` Phase 2 lists `/auth/refresh` and `/auth/me`; only register/login/logout exist.
+- `ARCHITECTURE.md` module list includes `settings`, `tables`, `receipts`, `refunds`, `shifts` but no route files exist for them.
+- No eslint configured; T015 coverage > 80% claim unmeasured (no coverage tooling evident).
+- Duplicate auth logic: unused `auth.routes.ts` (no `schema` option) vs fixed inline handlers in `index.ts`.
 
 ## Key rules
 

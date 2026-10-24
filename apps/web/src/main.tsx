@@ -1,26 +1,9 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useLanguage } from "./hooks/useLanguage.ts";
+import ReactDOM from "react-dom/client";
+import App from "./App";
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <></>,
-  },
-]);
-
-function App() {
-  const { t, switchLanguage, language } = useLanguage();
-
-  return (
-    <>
-      <QueryClientProvider client={new QueryClient()}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-      <h1>{t("title")}</h1>
-    </>
-  );
-}
-
-export default App;
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

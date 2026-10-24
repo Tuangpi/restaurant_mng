@@ -31,6 +31,9 @@ app.use("/api/inventory", inventoryRouter)
 app.use("/api/kitchen", kitchenRouter);
 
 
+import syncRouter from "./sync.routes.ts";
+app.use("/api/sync", syncRouter);
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -80,7 +83,9 @@ app.post("/api/auth/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, s
   // Check if user already exists (using Prisma)
   const { PrismaClient } = require("@prisma/client");
   const { PrismaPg } = require("@prisma/adapter-pg");
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL }, {
+    schema: process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).searchParams.get("schema") ?? "public" : "public",
+  });
   const prisma = new PrismaClient({ adapter, log: process.env.NODE_ENV !== "production" ? ["query", "info", "warn", "error"] : [] });
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -111,7 +116,9 @@ app.post("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standa
 
   const { PrismaClient } = require("@prisma/client");
   const { PrismaPg } = require("@prisma/adapter-pg");
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL }, {
+    schema: process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).searchParams.get("schema") ?? "public" : "public",
+  });
   const prisma = new PrismaClient({ adapter, log: process.env.NODE_ENV !== "production" ? ["query", "info", "warn", "error"] : [] });
 
   const user = await prisma.user.findUnique({ where: { email } });

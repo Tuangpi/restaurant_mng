@@ -33,6 +33,7 @@ model Tenant {
   refunds Refund[]
   tables Table[]
   payments Payment[]
+  syncOperations SyncOperation[]
 }
 
 model Membership {
@@ -233,4 +234,18 @@ model InventoryMovement {
   tenant  Tenant   @relation(fields: [tenantId], references: [id])
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
   order Order? @relation(fields: [orderId], references: [id])
+}
+
+model SyncOperation {
+  id             String   @id @default(uuid())
+  tenantId       String
+  clientId       String
+  idempotencyKey String
+  entity         String
+  operation      String
+  entityId       String
+  createdAt      DateTime @default(now())
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, idempotencyKey])
 }

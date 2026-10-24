@@ -2,8 +2,36 @@
 
 Current state and recent checks.
 
-## Current task
-All tasks T001–T017 complete; verifying Phase 3-8 features and CI checks
+## Current State
+
+- Current task: None. T017 complete.
+- Most recently completed: T017 — task numbering/scope reconciliation + MVP audit vs PRD §8. T018–T025 added to TASKS.md for remaining MVP gaps.
+- Next: T018 — Frontend pages and components (first unblocked task; all dependencies DONE).
+- The project is **not complete**. 8 tasks remain (T018–T025): frontend pages, tenant tax rates, /auth/refresh & /auth/me, missing route files (settings/tables/receipts/refunds/shifts), sync migration deploy, browser offline queue + payment replay, eslint + coverage, duplicate auth cleanup.
+- Sync migration (`20261024163000_sync_operations`) is supplied but has NOT been applied to the application database. Only isolated test schemas were migrated and removed.
+- No leftover temp schemas remain in the application database.
+
+## Latest verified work — T016 (2026-10-24)
+
+- API `tsc --build --force`: passes, including `apps/api/src/index.ts` changes.
+- Web `tsc --noEmit --project apps/web/tsconfig.json`: passes.
+- Web `vite build --root apps/web`: passes.
+- vitest: 17/17 pass — `sync.test.ts` (10) and `auth.test.ts` (7), both against fresh temporary PostgreSQL schemas. Application database never modified; temp schemas created and dropped in `beforeAll`/`afterAll`.
+- `auth.test.ts` isolated: replaced unguarded `user.deleteMany({})` with temp-schema setup/teardown mirroring `sync.test.ts`; forces `apps/api/.env` (postgres superuser, can create schemas) over ambient env via `config({ override: true })`.
+- `index.ts`: auth-route `PrismaPg` instances now honor the `schema` search param (same pattern as `sync.routes.ts`), defaulting to `public`, so tests target isolated schemas without changing production behavior.
+- `git diff --check`: passed.
+- No eslint script/binary is configured in the workspace; no lint check available to run.
+
+## Latest verified work — T013 (2026-10-24)
+
+- Replaced broken `apps/api/src/sync.routes.ts` with the documented operations batch contract. Supports ORDER CREATE for active OWNER/MANAGER/CASHIER/WAITER members; unsupported operations are rejected explicitly.
+- Added signature/expiry verification, tenant header and membership checks, strict validation, active/available menu and tenant-owned table checks, integer-MMK limits, snapshots, and initial order history.
+- Added SyncOperation model and migration with tenant/key uniqueness. Per-tenant PostgreSQL transaction locks serialize sync retries. Order, items, history, and replay record commit or roll back together.
+- Added `apps/api/test/sync.test.ts`: 10 real PostgreSQL integration tests pass in a fresh temporary schema, covering concurrent retries, tenant isolation, auth, validation, unavailable items, and forced replay-log failure/rollback. No application rows were deleted by these checks.
+- Checks: Prisma validate and generate passed; API `tsc --noEmit` passed; focused sync suite 10/10 passed; `git diff --check` passed.
+- Limitations: fixed 7% tax matches the online order route; tenant rates are not implemented. Online ordering does not share sync's numbering lock. Client queue and payment replay remain outside this task. Apply the supplied migration before using sync with the application database.
+
+## Historical notes (not current completion evidence)
 
 ## Most recently completed task
 T002 — Prisma schema, migration, and seed - Fixed seed script to be idempotent
@@ -66,7 +94,7 @@ T002 — Prisma schema, migration, and seed - Fixed seed script to be idempotent
 - 2026-10-24: Verified 7/7 auth tests pass; TypeScript typecheck passes across all packages; web build succeeds.
 - 2026-10-24: Updated PROGRESS.md to reflect verified state; cleaned up untracked backup file `tenant.routes.ts.bak`.
 
-## Next steps
+## Historical next steps (superseded by Current State)
 
 1. Verify `npm run dev` starts both API and web servers.
 
