@@ -7,12 +7,13 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
 
-const prisma = new PrismaClient({
-  ...(process.env.NODE_ENV !== "production" && {
-    log: ["query", "info", "warn", "error"],
-  }),
+// Initialize PrismaClient with driver adapter for Prisma 7.x
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
 });
+const prisma = new PrismaClient({ adapter });
 
 const router = express.Router();
 

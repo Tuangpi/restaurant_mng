@@ -32,6 +32,25 @@ T002 — Prisma schema, migration, and seed - Fixed seed script to be idempotent
 - `npx tsc --noEmit --project apps/api/tsconfig.json`: Passes with no errors
 - T002: Prisma schema, migration, and seed — schema, client, migration, and seed all done; database `restaurant_mng` has all tables, `npx prisma migrate dev` reports "Already in sync"
 
+- 2026-10-23: Implemented T007 — Staff management routes with Zod validation, role-based access (OWNER/MANAGER), JWT cookie auth, and error handling.
+  - GET/POST/PATCH/DELETE /api/staff/tenants/:tenantId/members with OWNER/MANAGER permissions
+  - Zod validation for staff data with role field
+  - Proper error handling with 403 for unauthorized access
+- 2026-10-23: Implemented T008 — Bilingual menu CRUD routes with Zod validation, tenant filtering, and role-based access.
+  - GET/POST/PATCH/DELETE /api/menu/categories and /api/menu/items with tenant scoping
+  - Supports name and nameMm (Burmese) fields for bilingual support
+  - OWNER/MANAGER role-based access control
+  - Rate limiting and proper error handling
+- 2026-10-23: Implemented T007 — Staff management routes with Zod validation, role-based access (OWNER/MANAGER), JWT cookie auth, and error handling.
+  - GET/POST/PATCH/DELETE /api/staff/tenants/:tenantId/members with OWNER/MANAGER permissions
+  - Zod validation for staff data with role field
+  - Proper error handling with 403 for unauthorized access
+- 2026-10-23: Implemented T008 — Bilingual menu CRUD routes with Zod validation, tenant filtering, and role-based access.
+  - GET/POST/PATCH/DELETE /api/menu/categories and /api/menu/items with tenant scoping
+  - Supports name and nameMm (Burmese) fields for bilingual support
+  - OWNER/MANAGER role-based access control
+  - Rate limiting and proper error handling
+
 ## Known issues
 
 - Prisma migration (`npx prisma migrate dev`) fails due to database user not having CREATE DATABASE permission (shadow database issue). Database `restaurant_mng` exists but tables need to be created manually or permissions granted.

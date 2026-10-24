@@ -1,80 +1,136 @@
-import "dotenv/config";
-import express, { Express, Request, Response, NextFunction } from "express";
-import helmet from "helmet";
-import cors from "cors";
-import authRouter from "./auth.routes";
+const app = express()
+import express from "express"
 import tenantRouter from "./tenant.routes";
-import { PrismaClient } from "@prisma/client";
+import staffRouter from "./staff.routes";
+import orderRouter from "./order.routes";
+import paymentsRouter from "./payments.routes";
+import reportsRouter from "./reports.routes";
+import inventoryRouter from "./inventory.routes";
+import kitchenRouter from "./kitchen.routes";
+import "dotenv/config";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
 
-const prisma = new PrismaClient({
-  ...(process.env.NODE_ENV !== "production" && {
-    log: ["query", "info", "warn", "error"],
-  }),
-});
-
-const app: Express = express();
-const port = process.env.PORT || 4000;
-
-app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173", credentials: true }));
-app.use(express.json({ limit: "10kb" }));
-
-// Auth routes
-app.use("/api/auth", authRouter);
-
-// Tenant and membership routes
+// Tenant routes
 app.use("/api/tenants", tenantRouter);
+// Staff routes
+app.use("/api/staff", staffRouter)
 
-// Health endpoints
-app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    data: {
-      status: "ok",
-      service: "restaurant-mng-api",
-      timestamp: new Date().toISOString(),
-      version: "0.1.0",
-      uptimeSeconds: Math.floor(process.uptime()),
-    },
-  });
+// Order routes
+app.use("/api/orders", orderRouter)
+
+// Payment and shift routes
+app.use("/api/payments", paymentsRouter)
+
+// Reports routes
+app.use("/api/reports", reportsRouter)
+
+// Inventory routes
+app.use("/api/inventory", inventoryRouter)
+
+// Kitchen display routes
+app.use("/api/kitchen", kitchenRouter);
+
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
+app.get("/api/health/ready", (_req, res) => {
+  res.json({ ready: true });
 });
 
-app.get("/api/health/ready", async (_req: Request, res: Response) => {
-  try {
-    await prisma.$executeRaw`SELECT 1`;
-    res.json({
-      success: true,
-      data: {
-        status: "ready",
-        database: "up",
-        timestamp: new Date().toISOString(),
-      },
-    });
-  } catch (err) {
-    res.status(503).json({
-      success: false,
-      error: {
-        code: "SERVICE_UNAVAILABLE",
-        message: "Database unavailable",
-      },
-    });
+// Validate function
+function validate(schema: z.ZodSchema, data: unknown) {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const errors = result.error.format();
+    return { success: false, error: { code: "VALIDATION_ERROR", message: "Validation failed", details: errors } };
   }
+  return { success: true, data: result.data };
+}
+
+// Register schemas
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(2),
 });
 
-// Global error handler
-app.use(
-  (err: any, _req: Request, _res: Response, _next: NextFunction) => {
-    console.error("Unhandled error:", err);
-    _res.status(500).json({
-      success: false,
-      error: {
-        code: "INTERNAL_ERROR",
-        message: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
-      },
-    });
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+// Health check routes
+// POST /api/auth/register
+app.post("/api/auth/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
+  const validation = validate(registerSchema, req.body);
+  if (!validation.success) {
+    return res.status(400).json(validation.error);
   }
-);
 
-app.listen(port, () => {
-  console.log(`API listening on port ${port}`);
+  const { email, password, name } = validation.data as any;
+
+  // Check if user already exists (using Prisma)
+  const { PrismaClient } = require("@prisma/client");
+  const { PrismaPg } = require("@prisma/adapter-pg");
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter, log: process.env.NODE_ENV !== "production" ? ["query", "info", "warn", "error"] : [] });
+
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    return res.status(409).json({ success: false, error: { code: "USER_EXISTS", message: "User with this email already exists." } });
+  }
+
+  const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
+  const passwordHash = await bcrypt.hash(password, saltRounds);
+
+  const user = await prisma.user.create({ data: { email, passwordHash, name, status: "ACTIVE" } });
+
+  const accessToken = jwt.sign({ userId: user.id, email: user.email }, process.env.ACCESS_TOKEN_SECRET || "restaurant-mng-access-secret", { expiresIn: "15m" });
+
+  res.cookie("access_token", accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 15 * 60 * 1000 });
+
+  res.json({ success: true, data: { user: { id: user.id, email: user.email, name: user.name } } });
 });
+
+// POST /api/auth/login
+app.post("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
+  const validation = validate(loginSchema, req.body);
+  if (!validation.success) {
+    return res.status(400).json(validation.error);
+  }
+
+  const { email, password } = validation.data as any;
+
+  const { PrismaClient } = require("@prisma/client");
+  const { PrismaPg } = require("@prisma/adapter-pg");
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter, log: process.env.NODE_ENV !== "production" ? ["query", "info", "warn", "error"] : [] });
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    return res.status(401).json({ success: false, error: { code: "AUTHENTICATION_ERROR", message: "Invalid email or password." } });
+  }
+
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isValid) {
+    return res.status(401).json({ success: false, error: { code: "AUTHENTICATION_ERROR", message: "Invalid email or password." } });
+  }
+
+  const accessToken = jwt.sign({ userId: user.id, email: user.email }, process.env.ACCESS_TOKEN_SECRET || "restaurant-mng-access-secret", { expiresIn: "15m" });
+
+  res.cookie("access_token", accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 15 * 60 * 1000 });
+
+  res.json({ success: true, data: { user: { id: user.id, email: user.email, name: user.name } } });
+});
+
+// POST /api/auth/logout
+app.post("/api/auth/logout", (_req, res) => {
+  res.clearCookie("access_token", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" });
+  res.json({ success: true, data: { message: "Logged out successfully." } });
+});
+
+export default app;

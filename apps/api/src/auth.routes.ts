@@ -8,13 +8,14 @@ import rateLimit from "express-rate-limit";
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-const { PrismaClient } = require("@prisma/client");
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient({
-  ...(process.env.NODE_ENV !== "production" && {
-    log: ["query", "info", "warn", "error"],
-  }),
+// Initialize PrismaClient with driver adapter for Prisma 7.x
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
 });
+const prisma = new PrismaClient({ adapter, log: process.env.NODE_ENV !== "production" ? ["query", "info", "warn", "error"] : [] });
 
 const router = express.Router();
 
@@ -59,7 +60,7 @@ router.post("/register", rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standar
 
   const accessToken = jwt.sign({ userId: user.id, email: user.email }, process.env.ACCESS_TOKEN_SECRET || "restaurant-mng-access-secret", { expiresIn: "15m" });
 
-  res.cookie("access_token", accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, maxAge: 15 * 60 * 1000 });
+  res.cookie("access_token", accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 15 * 60 * 1000 });
 
   res.json({ success: true, data: { user: { id: user.id, email: user.email, name: user.name } } });
 });
@@ -85,14 +86,14 @@ router.post("/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHead
 
   const accessToken = jwt.sign({ userId: user.id, email: user.email }, process.env.ACCESS_TOKEN_SECRET || "restaurant-mng-access-secret", { expiresIn: "15m" });
 
-  res.cookie("access_token", accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, maxAge: 15 * 60 * 1000 });
+  res.cookie("access_token", accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 15 * 60 * 1000 });
 
   res.json({ success: true, data: { user: { id: user.id, email: user.email, name: user.name } } });
 });
 
 // POST /api/auth/logout
 router.post("/logout", (_req: Request, res: Response) => {
-  res.clearCookie("access_token", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const });
+  res.clearCookie("access_token", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" });
   res.json({ success: true, data: { message: "Logged out successfully." } });
 });
 
