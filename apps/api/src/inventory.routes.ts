@@ -1,23 +1,20 @@
 import "dotenv/config";
 import express from "express";
-import helmet from "helmet";
-import cors from "cors";
 import rateLimit from "express-rate-limit";
 import type { Request, Response } from "express";
-
-interface RequestWithTenant extends Request {
-  tenant?: { id: string };
-}
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }, {
+    schema: process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).searchParams.get("schema") ?? "public" : "public",
+  }),
+});
 
-const router = express();
+const router = express.Router();
 
-// Rate limit for inventory routes
 const inventoryRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -25,43 +22,98 @@ const inventoryRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-// Helper: extract user from access_token cookie
 function getUserFromToken(req: Request): string | null {
-  const cookie = req.cookies?.["access_token"];
+  const cookie = req.headers.cookie
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("access_token="))
+    ?.slice("access_token=".length);
+
   if (!cookie) return null;
 
   try {
-    const token = cookie.split(".")[1];
-    const payload = JSON.parse(Buffer.from(token, "base64").toString());
-    return payload.userId;
+    const secret =
+      process.env.ACCESS_TOKEN_SECRET ||
+      (process.env.NODE_ENV !== "production"
+        ? "restaurant-mng-access-secret"
+        : undefined);
+    if (!secret) return null;
+    const payload = jwt.verify(decodeURIComponent(cookie), secret, {
+      algorithms: ["HS256"],
+    });
+    if (
+      typeof payload === "string" ||
+      typeof (payload as any).userId !== "string" ||
+      !(payload as any).userId
+    ) {
+      return null;
+    }
+    return (payload as any).userId;
   } catch {
     return null;
   }
 }
 
-// Helper: check if user has OWNER or MANAGER role
-async function hasInvAuth(userId: string, tenantId: string, req: RequestWithTenant): Promise<boolean> {
-  const userIdFromToken = getUserFromToken(req);
-  if (!userIdFromToken) return false;
-
-  const membership = await prisma.membership.findFirst({
-    where: { tenantId, userId: userIdFromToken },
+async function getMembership(userId: string, tenantId: string) {
+  return prisma.membership.findFirst({
+    where: {
+      tenantId,
+      userId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      tenant: { status: "ACTIVE" },
+    },
   });
-
-  if (!membership) return false;
-
-  return membership.role === "OWNER" || membership.role === "MANAGER";
 }
 
-// GET /api/inventory/items - list inventory items
+function isOwnerOrManager(role: string) {
+  return role === "OWNER" || role === "MANAGER";
+}
+
+const createSchema = z
+  .object({
+    name: z.string().min(1),
+    unit: z.string().min(1).optional(),
+    quantityOnHand: z.number().int().min(0).optional(),
+    quantity: z.number().int().min(0).optional(),
+    reorderLevel: z.number().int().min(0).optional(),
+    minQuantity: z.number().int().min(0).optional(),
+  })
+  .transform((data) => ({
+    name: data.name,
+    unit: data.unit ?? "piece",
+    quantityOnHand: data.quantityOnHand ?? data.quantity ?? 0,
+    reorderLevel: data.reorderLevel ?? 0,
+    minQuantity: data.minQuantity ?? 0,
+  }));
+
+const updateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    unit: z.string().min(1).optional(),
+    quantityOnHand: z.number().int().min(0).optional(),
+    quantity: z.number().int().min(0).optional(),
+    reorderLevel: z.number().int().min(0).optional(),
+    minQuantity: z.number().int().min(0).optional(),
+  })
+  .transform((data) => {
+    const result: Record<string, unknown> = {};
+    if (data.name !== undefined) result.name = data.name;
+    if (data.unit !== undefined) result.unit = data.unit;
+    if (data.quantityOnHand !== undefined || data.quantity !== undefined) {
+      result.quantityOnHand = data.quantityOnHand ?? data.quantity;
+    }
+    if (data.reorderLevel !== undefined) result.reorderLevel = data.reorderLevel;
+    if (data.minQuantity !== undefined) result.minQuantity = data.minQuantity;
+    return result;
+  });
+
 router.get(
   "/",
   inventoryRateLimit,
-  async (req: RequestWithTenant, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenant?.id || "";
       const userId = getUserFromToken(req);
-
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -69,11 +121,15 @@ router.get(
         });
       }
 
-      // Check if user is a member of this tenant
-      const membership = await prisma.membership.findFirst({
-        where: { tenantId, userId },
-      });
+      const tenantId = req.get("X-Tenant-Id");
+      if (!tenantId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "X-Tenant-Id is required." },
+        });
+      }
 
+      const membership = await getMembership(userId, tenantId);
       if (!membership) {
         return res.status(403).json({
           success: false,
@@ -82,17 +138,14 @@ router.get(
       }
 
       const items = await prisma.inventoryItem.findMany({
-        where: { tenantId, isActive: true },
+        where: { tenantId },
         orderBy: { name: "asc" },
       });
 
-      res.json({
-        success: true,
-        data: items,
-      });
+      return res.json({ success: true, data: items });
     } catch (err) {
       console.error("Error fetching inventory items:", err);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: { code: "INTERNAL_ERROR", message: "Failed to fetch inventory items" },
       });
@@ -100,15 +153,12 @@ router.get(
   }
 );
 
-// POST /api/inventory/items - create inventory item
 router.post(
   "/",
   inventoryRateLimit,
-  async (req: RequestWithTenant, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenant?.id || "";
       const userId = getUserFromToken(req);
-
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -116,20 +166,21 @@ router.post(
         });
       }
 
-      // Check if user has OWNER or MANAGER role
-      const authCheck = await hasInvAuth(userId, tenantId, req);
-      if (!authCheck) {
+      const tenantId = req.get("X-Tenant-Id");
+      if (!tenantId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "X-Tenant-Id is required." },
+        });
+      }
+
+      const membership = await getMembership(userId, tenantId);
+      if (!membership || !isOwnerOrManager(membership.role)) {
         return res.status(403).json({
           success: false,
           error: { code: "ACCESS_DENIED", message: "Only OWNER/MANAGER can create inventory items." },
         });
       }
-
-      const createSchema = z.object({
-        name: z.string().min(2),
-        nameMm: z.string().optional(),
-        unit: z.enum(["piece", "kg", "liter", "gram", "pack"]).default("piece"),
-      });
 
       const validation = createSchema.safeParse(req.body);
       if (!validation.success) {
@@ -139,13 +190,11 @@ router.post(
         });
       }
 
-      const { name, nameMm } = validation.data;
+      const data = validation.data;
 
-      // Check if item name already exists in this tenant
       const existingItem = await prisma.inventoryItem.findFirst({
-        where: { tenantId, name },
+        where: { tenantId, name: data.name },
       });
-
       if (existingItem) {
         return res.status(409).json({
           success: false,
@@ -156,26 +205,18 @@ router.post(
       const item = await prisma.inventoryItem.create({
         data: {
           tenantId,
-          name,
-          nameMm,
-          unit: validation.data.unit,
-          isActive: true,
+          name: data.name,
+          unit: data.unit,
+          quantityOnHand: data.quantityOnHand,
+          reorderLevel: data.reorderLevel,
+          minQuantity: data.minQuantity,
         },
       });
 
-      res.status(201).json({
-        success: true,
-        data: {
-          id: item.id,
-          name: item.name,
-          nameMm: item.nameMm,
-          unit: item.unit,
-          isActive: item.isActive,
-        },
-      });
+      return res.status(201).json({ success: true, data: item });
     } catch (err) {
       console.error("Error creating inventory item:", err);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: { code: "INTERNAL_ERROR", message: "Failed to create inventory item" },
       });
@@ -183,16 +224,12 @@ router.post(
   }
 );
 
-// PATCH /api/inventory/items/:itemId - adjust inventory quantity with movement log
-router.patch(
+router.put(
   "/:itemId",
   inventoryRateLimit,
-  async (req: RequestWithTenant, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenant?.id || "";
-      const itemId = req.params.itemId;
       const userId = getUserFromToken(req);
-
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -200,23 +237,33 @@ router.patch(
         });
       }
 
-      // Check if user has OWNER role (only owner can adjust inventory)
-      const membership = await prisma.membership.findFirst({
-        where: { tenantId, userId },
-      });
-
-      if (!membership|| membership.role !== "OWNER") {
-        return res.status(403).json({
+      const tenantId = req.get("X-Tenant-Id");
+      if (!tenantId) {
+        return res.status(400).json({
           success: false,
-          error: { code: "ACCESS_DENIED", message: "Only OWNER can adjust inventory." },
+          error: { code: "VALIDATION_ERROR", message: "X-Tenant-Id is required." },
         });
       }
 
-      const updateSchema = z.object({
-        movementType: z.enum(["IN", "OUT", "ADJUST"]),
-        quantity: z.number().int(),
-        reason: z.string().optional(),
+      const membership = await getMembership(userId, tenantId);
+      if (!membership || !isOwnerOrManager(membership.role)) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "ACCESS_DENIED", message: "Only OWNER/MANAGER can update inventory items." },
+        });
+      }
+
+      const itemId = String(req.params.itemId);
+
+      const existing = await prisma.inventoryItem.findFirst({
+        where: { id: itemId, tenantId },
       });
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: { code: "ITEM_NOT_FOUND", message: "Inventory item not found." },
+        });
+      }
 
       const validation = updateSchema.safeParse(req.body);
       if (!validation.success) {
@@ -226,55 +273,25 @@ router.patch(
         });
       }
 
-      const { quantity, movementType, reason } = validation.data;
-
-      // Check if item exists
-      const item = await prisma.inventoryItem.findFirst({
-        where: { id: itemId, tenantId },
-      });
-
-      if (!item) {
-        return res.status(404).json({
+      const updateData = validation.data;
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
           success: false,
-          error: { code: "ITEM_NOT_FOUND", message: "Inventory item not found." },
+          error: { code: "VALIDATION_ERROR", message: "No fields to update." },
         });
       }
 
-      // Create movement log
-      await prisma.inventoryMovement.create({
-        data: {
-          tenantId,
-          itemId,
-          type: movementType,
-          quantity: quantity,
-          previousQuantity: item.currentQuantity,
-          newQuantity: quantity,
-          reason,
-        },
+      const item = await prisma.inventoryItem.update({
+        where: { id: itemId },
+        data: updateData,
       });
 
-      // Update item quantity - need to figure out current quantity
-      // For simplicity, set the item's quantity field
-      const updatedItem = await prisma.inventoryItem.update({
-        where: { id: itemId, tenantId },
-        data: {
-          currentQuantity: quantity,
-        },
-      });
-
-      res.json({
-        success: true,
-        data: {
-          id: updatedItem.id,
-          name: updatedItem.name,
-          currentQuantity: updatedItem.currentQuantity,
-        },
-      });
+      return res.json({ success: true, data: item });
     } catch (err) {
-      console.error("Error adjusting inventory:", err);
-      res.status(500).json({
+      console.error("Error updating inventory item:", err);
+      return res.status(500).json({
         success: false,
-        error: { code: "INTERNAL_ERROR", message: "Failed to adjust inventory" },
+        error: { code: "INTERNAL_ERROR", message: "Failed to update inventory item" },
       });
     }
   }

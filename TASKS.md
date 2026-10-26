@@ -186,25 +186,25 @@ All tasks are tracked with stable IDs. Do not reorder IDs; new tasks appended af
 **Goal**: Implement `POST /api/inventory`, `GET /api/inventory`, `PUT /api/inventory/:itemId` endpoints for menu item inventory tracking with role-based access and tenant filtering.
 **Completion check**: Inventory items can be created/listed by OWNER/MANAGER; CASHIER can view only; tenant isolation enforced; Zod validation; TypeScript check passes.
 **Dependencies**: T002, T006
-**Status**: TODO
+**Status**: DONE - `POST /api/inventory`, `GET /api/inventory`, `PUT /api/inventory/:itemId` implemented in `apps/api/src/inventory.routes.ts` with JWT auth, tenant membership, OWNER/MANAGER create/update, CASHIER read-only, Zod validation, tenant isolation; smoke tests pass (6/6); API TypeScript check passes.
 
 ## T029 — Inventory management routes
 **Goal**: Implement `POST /api/inventory`, `GET /api/inventory`, `PUT /api/inventory/:itemId` endpoints for menu item inventory tracking with role-based access and tenant filtering.
 **Completion check**: Inventory items can be created/listed by OWNER/MANAGER; CASHIER can view only; tenant isolation enforced; Zod validation; TypeScript check passes.
 **Dependencies**: T002, T006
-**Status**: TODO
+**Status**: DONE - `POST /api/inventory`, `GET /api/inventory`, `PUT /api/inventory/:itemId` implemented in `apps/api/src/inventory.routes.ts` with JWT auth, tenant membership, OWNER/MANAGER create/update, CASHIER read-only, Zod validation, tenant isolation; smoke tests pass (6/6); API TypeScript check passes.
 
 ## T030 — Security hardening
 **Goal**: Add security headers, rate limiting across all routes, CSP configuration, and security middleware; implement `POST /api/security/revoke-all` for session revocation.
 **Completion check**: All routes have security headers; rate limiting active; session revocation works; no new vulnerabilities; lint and typecheck pass.
 **Dependencies**: T025
-**Status**: DONE - helmet + CSP headers added at app level; global rate limiting added; `POST /api/security/revoke-all` endpoint added with session invalidation; follows existing patterns in codebase.
+**Status**: DONE - security middleware (helmet + CSP) and global rate limiting at app level; `POST /api/security/revoke-all` moved to `apps/api/src/security.routes.ts` with JWT auth, tenant header, membership revocation, cookie clearing; smoke tests pass (2/2); API TypeScript check passes.
 
 ## T031 — Pilot/beta features
 **Goal**: Implement pilot feature flags and beta user endpoints; `POST /api/pilot/feature-flag`, `GET /api/pilot/flags/:userId`; limited rollout control; analytics opt-in.
 **Completion check**: Feature flags toggleable; beta users can opt-in/out; no impact on production orders; TypeScript check passes.
 **Dependencies**: T002
-**Status**: DONE - `POST /api/pilot/feature-flag` and `GET /api/pilot/flags/:userId` endpoints implemented with auth+tenant checks; feature flags stored via Prisma upsert; follows existing patterns in codebase.
+**Status**: DONE - `POST /api/pilot/feature-flag` and `GET /api/pilot/flags/:userId` implemented in `apps/api/src/pilot.routes.ts` with JWT auth, tenant header, Zod validation, Prisma `FeatureFlag` upsert; migration `20261026120000_pilot_feature_flags` added; smoke tests pass (2/2); API TypeScript check passes.
 
 ## T032 — Project closeout and documentation
 **Goal**: Finalize all open tasks; ensure all routes documented in API.md; run full test suite; generate TypeScript types; verify `npm run build` across all packages; create handoff documentation.
