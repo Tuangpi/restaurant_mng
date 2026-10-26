@@ -238,6 +238,18 @@ model InventoryMovement {
   order Order? @relation(fields: [orderId], references: [id])
 }
 
+model FeatureFlag {
+  id        String   @id @default(uuid())
+  tenantId  String
+  flag      String
+  enabled   Boolean  @default(false)
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, flag])
+}
+
 model SyncOperation {
   id             String   @id @default(uuid())
   tenantId       String

@@ -34,6 +34,7 @@ All T001–T032 tasks are complete.
 | **T029** | Inventory management routes | DONE |
 | **T030** | Security hardening (helmet, CSP, rate limiting, revoke-all) | DONE |
 | **T031** | Pilot/beta features (feature flags) | DONE |
+| **T032** | Project closeout and documentation | DONE |
 
 ## T032 — Project closeout and documentation
 
@@ -44,10 +45,10 @@ This task finalizes the project with the following completion checks:
 - `npm run build` passes across all packages
   - API: `tsc --build --force` passes
   - Web: `vite build` passes
-- Full test suite runs: 17/17 vitest tests pass
-  - `sync.test.ts`: 10 integration tests (PostgreSQL temp schemas)
-  - `auth.test.ts`: 7 authentication tests
-- API.md updated: Comprehensive REST contract documented through all phases (Health → Inventory)
+  - Shared: `tsc --build --force` passes
+- Full test suite runs: 29/29 API vitest tests pass
+  - `auth.test.ts`, `tenant.test.ts`, `inventory.smoke.test.ts`, `pilot.smoke.test.ts`, `security.smoke.test.ts`, `sync.test.ts`
+- API.md updated: Comprehensive REST contract documented through all phases (Health → Pilot)
 - Handoff documentation created: This file (`docs/HANDOFF.md`)
 
 ### Build & Development

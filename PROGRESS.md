@@ -4,9 +4,9 @@ Current state and recent checks.
 
 ## Current State
 
-- Current task: None. T028 complete. T029–T032 remaining.
-- Most recently completed: T028 — Offline sync: queue analytics
-- T028 — Queue analytics: `GET /api/sync/queue-stats` verified; SyncOperation stores `status`/`payload`; migration `20261024170000_sync_operation_status` added; dashboard shows sync reliability metrics; sync tests pass (19/19); API TypeScript check passes.
+- Current task: None. T032 complete. All tasks T001–T032 done.
+- Most recently completed: T032 — Project closeout and documentation
+- T032 — Closeout: API.md updated with security and pilot routes; shared package build fixed; API build, web build, shared build pass; API test suite 29/29 pass; HANDOFF.md updated.
 - T020 — /auth/refresh and /auth/me: implemented in `apps/api/src/auth.routes.ts` with proper token rotation, role checks, and error handling. Added `REFRESH_TOKEN_SECRET` to .env. Verified: `tsc --noEmit` pass, build pass, 16/17 auth tests pass (1 pre-existing isolation failure — user already exists in isolated schema).
 
 ## Latest verified work — T016 (2026-10-24)

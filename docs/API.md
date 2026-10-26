@@ -335,10 +335,22 @@ The `SyncOperation` migration must be deployed before using this endpoint.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/inventory/items` | membership | Stock items |
-| `POST` | `/api/inventory/items` | `OWNER`/`MANAGER` | Add a stock item |
-| `PATCH` | `/api/inventory/items/:itemId` | `OWNER`/`MANAGER` | Adjust stock, recording a movement |
-| `GET` | `/api/inventory/movements` | membership | Stock movement history |
+| `GET` | `/api/inventory` | membership | Stock items |
+| `POST` | `/api/inventory` | `OWNER`/`MANAGER` | Add a stock item |
+| `PUT` | `/api/inventory/:itemId` | `OWNER`/`MANAGER` | Adjust stock, recording a movement |
+
+## 12. Phase 9 — Security
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/security/revoke-all` | session + `X-Tenant-Id` | Revoke all sessions for the current user in the tenant |
+
+## 13. Phase 10 — Pilot / beta feature flags
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/pilot/feature-flag` | session + `X-Tenant-Id` | Upsert a tenant feature flag (`{ flag, enabled }`) |
+| `GET` | `/api/pilot/flags/:userId` | `X-Tenant-Id` | List feature flags for a tenant |
 
       "tax": 0,
       "serviceCharge": 0,
