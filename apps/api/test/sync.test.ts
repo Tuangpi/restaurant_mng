@@ -32,7 +32,7 @@ beforeAll(async () => {
   await admin.connect()
   await admin.query(`CREATE SCHEMA "${schema}"`);
   await admin.query(`SET search_path TO "${schema}"`);
-  for (const migration of ["20261023064949", "20261024163000_sync_operations"]) {
+  for (const migration of ["20261023064949", "20261024120640_add_tenant_tax_service_charge_rate", "20261024163000_sync_operations", "20261024170000_sync_operation_status"]) {
     await admin.query(await readFile(new URL(`../prisma/migrations/${migration}/migration.sql`, import.meta.url), "utf8"));
   }
   const url = new URL(originalUrl!);
@@ -179,5 +179,24 @@ describe("Offline sync (isolated PostgreSQL schema)", () => {
     expect(first.body.data.results[0].status).toBe("APPLIED");
     expect(second.body.data.results[0].status).toBe("APPLIED");
     expect(first.body.data.results[0].entityId).not.toBe(second.body.data.results[0].entityId);
+  });
+
+  it("returns queue stats per status", async () => {
+    const res = await request(app).get("/api/sync/queue-stats").set("Cookie", cookie).set("X-Tenant-Id", tenantId);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      pending: expect.any(Number),
+      applied: expect.any(Number),
+      duplicate: expect.any(Number),
+      failed: expect.any(Number),
+      retentionDays: 30,
+    });
+  });
+
+  it("counts applied operations in queue stats", async () => {
+    const before = await request(app).get("/api/sync/queue-stats").set("Cookie", cookie).set("X-Tenant-Id", tenantId);
+    await sync([operation()]);
+    const after = await request(app).get("/api/sync/queue-stats").set("Cookie", cookie).set("X-Tenant-Id", tenantId);
+    expect(after.body.data.applied).toBeGreaterThanOrEqual(before.body.data.applied + 1);
   });
 });

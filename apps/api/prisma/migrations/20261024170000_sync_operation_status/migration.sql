@@ -1,0 +1,2 @@
+ALTER TABLE "SyncOperation" ADD COLUMN "payload" JSONB;
+ALTER TABLE "SyncOperation" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'PENDING';

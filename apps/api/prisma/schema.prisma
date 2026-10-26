@@ -246,6 +246,8 @@ model SyncOperation {
   entity         String
   operation      String
   entityId       String
+  payload        Json?
+  status         String   @default("PENDING")
   createdAt      DateTime @default(now())
   tenant         Tenant   @relation(fields: [tenantId], references: [id])
 

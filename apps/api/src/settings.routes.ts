@@ -99,7 +99,7 @@ router.patch(
   settingsRateLimit,
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (_req as any).tenant?.id || "";
+      const tenantId = (req as any).tenant?.id || "";
       const userId = getUserFromToken(req);
 
       if (!userId) {

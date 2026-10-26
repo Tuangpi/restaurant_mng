@@ -10,12 +10,21 @@ export function DashboardPage() {
 const navigate = useNavigate();
   const [tenants, setTenants] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [syncStats, setSyncStats] = useState<any>(null);
 
   useEffect(() => {
     api.get("/tenants").then((res) => {
       if (isSuccessResponse<any[]>(res)) setTenants(res.data);
       setIsLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem("tenantId")) {
+      api.get("/sync/queue-stats").then((res) => {
+        if (isSuccessResponse<any>(res)) setSyncStats(res.data);
+      });
+    }
   }, []);
 
   if (isLoading) {
@@ -117,7 +126,25 @@ const navigate = useNavigate();
               ))}
             </div>
           )}
+
         </div>
+
+        {syncStats && (
+          <div className="bg-burmese-bg p-6 rounded-xl border border-burmese-secondary/20">
+            <h3 className="text-sm font-semibold text-burmese-secondary uppercase tracking-wider mb-4">
+              Sync reliability
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>Pending: {syncStats.pending}</div>
+              <div>Applied: {syncStats.applied}</div>
+              <div>Duplicates: {syncStats.duplicate}</div>
+              <div>Failed: {syncStats.failed}</div>
+            </div>
+            <p className="mt-2 text-xs text-burmese-secondary">
+              Retention: {syncStats.retentionDays} days
+            </p>
+          </div>
+        )}
       </div>
     </Layout>
   );

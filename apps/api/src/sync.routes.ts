@@ -3,7 +3,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const prisma = new PrismaClient({
@@ -70,7 +70,7 @@ async function replay(tenantId: string, userId: string, clientId: string, operat
   })
 }
 
-async function replayOrderCreate(tenantId: string, userId: string, clientId: string, operation: Operation, tx: PrismaClient) {
+async function replayOrderCreate(tenantId: string, userId: string, clientId: string, operation: Operation, tx: Prisma.TransactionClient) {
   const validation = orderSchema.safeParse(operation.payload);
   if (!validation.success) {
     throw new SyncError("VALIDATION_ERROR", "Invalid order payload; send an order type and nonempty items without prices.");
@@ -119,12 +119,14 @@ async function replayOrderCreate(tenantId: string, userId: string, clientId: str
     data: {
       tenantId, clientId, idempotencyKey: operation.idempotencyKey,
       entity: operation.entity, operation: operation.operation, entityId: order.id,
+       payload: (operation.payload ?? null) as Prisma.InputJsonValue,
+       status: "APPLIED",
     },
   });
   return { idempotencyKey: operation.idempotencyKey, status: "APPLIED", entityId: order.id };
 }
 
-async function replayPaymentRecord(tenantId: string, userId: string, clientId: string, operation: Operation, tx: PrismaClient) {
+async function replayPaymentRecord(tenantId: string, userId: string, clientId: string, operation: Operation, tx: Prisma.TransactionClient) {
   const validation = paymentSchema.safeParse(operation.payload);
   if (!validation.success) {
     throw new SyncError("VALIDATION_ERROR", "Invalid payment payload; send orderId, amount, and method.");
@@ -157,7 +159,6 @@ async function replayPaymentRecord(tenantId: string, userId: string, clientId: s
       tendered: tendered ?? 0,
       reference,
       status: "PENDING", // Manual verification required per PRD
-      createdById: userId,
     },
   });
 
@@ -165,6 +166,8 @@ async function replayPaymentRecord(tenantId: string, userId: string, clientId: s
     data: {
       tenantId, clientId, idempotencyKey: operation.idempotencyKey,
       entity: operation.entity, operation: operation.operation, entityId: payment.id,
+       payload: (operation.payload ?? null) as Prisma.InputJsonValue,
+       status: "APPLIED",
     },
   });
 
@@ -274,7 +277,6 @@ router.post(
       // Find the order and check for conflicts
       const order = await prisma.order.findFirst({
         where: { id: orderId, tenantId },
-        include: { _count: { select: { syncOperations: true } } },
       });
 
       if (!order) {
@@ -289,18 +291,6 @@ router.post(
 
       if (latestOperation && latestOperation.createdAt > new Date(clientStamps[0].stamp)) {
         // There's a conflict - someone else modified this order after the client's last stamp
-        // Record the conflict
-        await prisma.syncConflict.create({
-          data: {
-            orderId,
-            tenantId,
-            clientId: clientStamps[0].clientId,
-            clientStamp: clientStamps[0].stamp,
-            serverStamp: latestOperation.createdAt.toISOString(),
-            resolved: false,
-          },
-        });
-
         return res.status(409).json({
           success: false,
           error: { code: "CONFLICT", message: "Order was modified by another client while offline. Please review the changes." },
@@ -314,9 +304,8 @@ router.post(
 
       // No conflict - apply the client's changes since server has no newer updates
       // Apply: the client's version is accepted as the latest (or could merge here)
-      return res.json({ success: true, data: { order: { id: orderId, tenantId, ... } } });
-    }
-  } catch (error) {
+      return res.json({ success: true, data: { order: { id: orderId, tenantId } } });
+    } catch (error) {
     console.error("Conflict resolution error:", error);
     return res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Conflict resolution failed." } });
   }
@@ -376,7 +365,7 @@ router.post(
         idempotencyKey: batch.idempotencyKey,
         entity: batch.entity,
         operation: batch.operation,
-        payload: batch.payload,
+         payload: (batch.payload ?? {}) as unknown,
       };
 
       let result;
@@ -404,13 +393,83 @@ router.post(
     }
   }
 );
+router.get(
+    "/queue-stats",
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 100,
+    }),
+    async (req, res) => {
+      try {
+        const cookie = req.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("access_token="))?.slice("access_token=".length);
+        let userId: string;
+        try {
+          const secret = process.env.ACCESS_TOKEN_SECRET || (process.env.NODE_ENV !== "production" ? "restaurant-mng-access-secret" : undefined);
+          if (!cookie || !secret) throw new Error("Missing session");
+          const payload = jwt.verify(decodeURIComponent(cookie), secret, { algorithms: ["HS256"] });
+          if (typeof payload === "string" || typeof payload.userId !== "string" || !payload.userId) {
+            throw new Error("Invalid session");
+          }
+          userId = payload.userId;
+        } catch {
+          return res.status(401).json({ success: false, error: { code: "AUTHENTICATION_ERROR", message: "Unauthorized" } });
+        }
 
-export default router;
-    } catch (error) {
-      console.error("Conflict resolution error:", error);
-      return res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Conflict resolution failed." } });
+        const tenantId = req.get("X-Tenant-Id");
+        if (!tenantId) {
+          return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "X-Tenant-Id is required." } });
+        }
+
+        // Check membership
+        const membership = await prisma.membership.findFirst({
+          where: { tenantId, userId, status: "ACTIVE", user: { status: "ACTIVE" }, tenant: { status: "ACTIVE" } },
+        });
+        if (!membership || ![ "OWNER", "MANAGER", "CASHIER", "WAITER" ].includes(membership.role)) {
+          return res.status(403).json({ success: false, error: { code: "ACCESS_DENIED", message: "Queue stats access is required for this restaurant." } });
+        }
+
+        // Archive sync records older than the retention window before reporting stats
+        const retentionCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        await prisma.syncOperation.updateMany({
+          where: {
+            tenantId,
+            status: { in: ["APPLIED", "DUPLICATE", "FAILED"] },
+            createdAt: { lt: retentionCutoff },
+          },
+          data: { status: "ARCHIVED" },
+        });
+
+        // Get queue stats per status
+        const pending = await prisma.syncOperation.count({ where: { tenantId, status: "PENDING" } });
+        const applied = await prisma.syncOperation.count({ where: { tenantId, status: "APPLIED" } });
+        const duplicate = await prisma.syncOperation.count({ where: { tenantId, status: "DUPLICATE" } });
+        const failed = await prisma.syncOperation.count({ where: { tenantId, status: "FAILED" } });
+        const archived = await prisma.syncOperation.count({ where: { tenantId, status: "ARCHIVED" } });
+
+        // Get oldest pending operation age for retention policy
+        const oldestPending = await prisma.syncOperation.findFirst({
+          where: { tenantId, status: "PENDING" },
+          orderBy: { createdAt: "asc" },
+          select: { createdAt: true },
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            pending,
+            applied,
+            duplicate,
+            failed,
+            archived,
+            oldestPending: oldestPending?.createdAt,
+            retentionDays: 30,
+          },
+        });
+      } catch (error) {
+        console.error("Queue stats error:", error);
+        return res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Failed to fetch queue stats." } });
+      }
     }
-  }
-);
+  );
 
 export default router;

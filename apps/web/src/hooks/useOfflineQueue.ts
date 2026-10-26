@@ -41,16 +41,43 @@ export function useOfflineQueue() {
     return stored ? JSON.parse(stored) : [];
   });
 
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [lastSyncAttempt, setLastSyncAttempt] = useState<number>(0);
+
   useEffect(() => {
-    const handleOnline = () => setSyncStatus("online");
+    const handleOnline = () => {
+      setSyncStatus("online");
+      // Debounced auto-sync with exponential backoff
+      const now = Date.now();
+      if (now - (lastSyncAttempt || 0) < 1000) return; // Throttle: min 1s between attempts
+      setAttemptCount((prev) => {
+        const newCount = Math.min(prev + 1, 3); // Max 3 attempts
+        if (newCount >= 3) {
+          // Last attempt - sync immediately
+          void syncQueue();
+        } else {
+          // Schedule next attempt with backoff
+          const backoff = 1000 * Math.pow(2, newCount); // 2s, 4s
+          setLastSyncAttempt(now);
+          const timer = setTimeout(() => {
+            setAttemptCount(newCount);
+            void syncQueue();
+          }, backoff);
+          return () => clearTimeout(timer);
+        }
+        return newCount;
+      });
+    };
+
     const handleOffline = () => setSyncStatus("offline");
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [syncStatus, queue, paymentQueue, attemptCount, lastSyncAttempt, syncQueue]);
 
   const addOrder = useCallback(
     (order: Omit<QueuedOrder, "id" | "createdAt">) => {
